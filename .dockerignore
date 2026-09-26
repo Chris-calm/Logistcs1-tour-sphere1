@@ -1,0 +1,14 @@
+.git
+.gitignore
+.github
+README.md
+node_modules
+vendor
+laravel-app/vendor
+laravel-app/node_modules
+laravel-app/.env
+laravel-app/.env.*
+laravel-app/storage/logs/*
+laravel-app/storage/framework/cache/*
+laravel-app/storage/framework/sessions/*
+laravel-app/storage/framework/views/*
