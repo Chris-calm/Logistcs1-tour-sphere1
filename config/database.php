@@ -64,6 +64,137 @@ $dbName = getenv('DB_DATABASE') ?: ($env['DB_DATABASE'] ?? $rootDir . '/database
 $username = getenv('DB_USERNAME') ?: ($env['DB_USERNAME'] ?? 'root');
 $password = getenv('DB_PASSWORD') ?: ($env['DB_PASSWORD'] ?? '');
 
+if (!function_exists('initializeSqliteDatabase')) {
+    function initializeSqliteDatabase($pdo) {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            role TEXT DEFAULT 'employer',
+            full_name TEXT NOT NULL,
+            is_active INTEGER DEFAULT 1,
+            is_archived INTEGER DEFAULT 0,
+            last_login TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );");
+
+        $pdo->exec("CREATE TABLE IF NOT EXISTS system_settings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            setting_key TEXT UNIQUE NOT NULL,
+            setting_value TEXT,
+            setting_group TEXT,
+            description TEXT,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );");
+
+        $pdo->exec("CREATE TABLE IF NOT EXISTS audit_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            action TEXT NOT NULL,
+            module TEXT NOT NULL,
+            description TEXT,
+            ip_address TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );");
+
+        $pdo->exec("CREATE TABLE IF NOT EXISTS suppliers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            supplier_code TEXT UNIQUE,
+            company_name TEXT,
+            contact_person TEXT,
+            email TEXT,
+            phone TEXT,
+            address TEXT,
+            tax_id TEXT,
+            bank_details TEXT,
+            payment_terms TEXT,
+            status TEXT DEFAULT 'active',
+            rating REAL DEFAULT 0,
+            is_archived INTEGER DEFAULT 0,
+            created_by INTEGER,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );");
+
+        $pdo->exec("CREATE TABLE IF NOT EXISTS products (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sku TEXT UNIQUE,
+            product_name TEXT,
+            description TEXT,
+            category TEXT,
+            unit_measure TEXT,
+            unit_price REAL DEFAULT 0,
+            reorder_point INTEGER DEFAULT 0,
+            reorder_quantity INTEGER DEFAULT 0,
+            current_stock INTEGER DEFAULT 0,
+            min_stock INTEGER DEFAULT 0,
+            max_stock INTEGER DEFAULT 0,
+            barcode TEXT,
+            serial_number_prefix TEXT,
+            last_serial_number INTEGER DEFAULT 0,
+            status TEXT DEFAULT 'active',
+            is_archived INTEGER DEFAULT 0,
+            created_by INTEGER,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );");
+
+        $pdo->exec("CREATE TABLE IF NOT EXISTS purchase_orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            po_number TEXT,
+            supplier_id INTEGER,
+            order_date TEXT,
+            expected_delivery TEXT,
+            shipping_address TEXT,
+            terms TEXT,
+            notes TEXT,
+            status TEXT DEFAULT 'pending',
+            approval_status TEXT DEFAULT 'pending_review',
+            total_amount REAL DEFAULT 0,
+            created_by INTEGER,
+            is_archived INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );");
+
+        $pdo->exec("CREATE TABLE IF NOT EXISTS purchase_order_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            po_id INTEGER,
+            product_id INTEGER,
+            quantity INTEGER,
+            unit_price REAL,
+            total_price REAL,
+            expected_date TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );");
+
+        $defaultAdminHash = password_hash('admin@08', PASSWORD_DEFAULT);
+        $pdo->exec("INSERT OR IGNORE INTO users (username, email, password, role, full_name, is_active, is_archived) VALUES ('admin', 'admin@globalscm.com', '$defaultAdminHash', 'admin', 'System Administrator', 1, 0);");
+
+        $defaultSettings = [
+            ['currency_symbol', '₱', 'general', 'Currency symbol used throughout the system'],
+            ['currency_code', 'PHP', 'general', 'ISO currency code'],
+            ['theme', 'light', 'ui', 'System theme (light/dark)'],
+            ['barcode_format', 'CODE128', 'general', 'Default barcode format for products'],
+            ['auto_serial_number', 'true', 'inventory', 'Automatically generate serial numbers'],
+            ['report_ai_enabled', 'true', 'ai', 'Enable AI-powered daily reports'],
+            ['show_warehousing', 'true', 'ui', 'Show/hide warehousing module'],
+            ['show_inventory', 'true', 'ui', 'Show/hide inventory module'],
+            ['show_procurement', 'true', 'ui', 'Show/hide procurement module'],
+            ['show_suppliers', 'true', 'ui', 'Show/hide supplier module'],
+            ['show_purchase_orders', 'true', 'ui', 'Show/hide purchase orders module'],
+            ['show_logistics', 'true', 'ui', 'Show/hide logistics module']
+        ];
+
+        foreach ($defaultSettings as $setting) {
+            [$key, $value, $group, $desc] = $setting;
+            $pdo->exec("INSERT OR IGNORE INTO system_settings (setting_key, setting_value, setting_group, description) VALUES ('$key', '$value', '$group', '$desc');");
+        }
+    }
+}
+
 $pdo = null;
 try {
     if (strtolower($driver) === 'sqlite') {
@@ -72,11 +203,21 @@ try {
             $sqlitePath = $rootDir . '/database/database.sqlite';
         }
 
+        if (!file_exists(dirname($sqlitePath))) {
+            mkdir(dirname($sqlitePath), 0777, true);
+        }
+
+        if (!file_exists($sqlitePath)) {
+            touch($sqlitePath);
+        }
+
         $pdo = new PDO('sqlite:' . $sqlitePath, null, null, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false,
         ]);
+
+        initializeSqliteDatabase($pdo);
     } else {
         $dsn = 'mysql:host=' . $host . ';port=' . $port . ';dbname=' . $dbName . ';charset=utf8mb4';
         $pdo = new PDO($dsn, $username, $password, [
@@ -94,6 +235,7 @@ try {
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES => false,
             ]);
+            initializeSqliteDatabase($pdo);
         } catch (Throwable $ignored) {
             $pdo = null;
         }

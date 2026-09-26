@@ -133,7 +133,7 @@ function generateDailyReport($pdo, $userId) {
             COUNT(DISTINCT DATE(it.created_at)) as active_days
         FROM products p
         LEFT JOIN inventory_transactions it ON p.id = it.product_id 
-            AND DATE(it.created_at) >= DATE_SUB(?, INTERVAL 30 DAY)
+            AND DATE(it.created_at) >= date('now', '-30 days')
         WHERE p.is_archived = 0
         GROUP BY p.id
         ORDER BY movement DESC
@@ -287,7 +287,7 @@ function generateWeeklyReport($pdo, $userId) {
             SUM(CASE WHEN transaction_type = 'receiving' THEN quantity ELSE 0 END) as received,
             SUM(CASE WHEN transaction_type = 'issuance' THEN quantity ELSE 0 END) as issued
         FROM inventory_transactions 
-        WHERE DATE(created_at) >= DATE_SUB(?, INTERVAL 7 DAY)
+        WHERE DATE(created_at) >= date('now', '-7 days')
         GROUP BY DATE(created_at)
         ORDER BY date ASC
     ");
@@ -311,9 +311,9 @@ function generateMonthlyReport($pdo, $userId) {
             SUM(CASE WHEN transaction_type = 'receiving' THEN quantity ELSE 0 END) as total_received,
             SUM(CASE WHEN transaction_type = 'issuance' THEN quantity ELSE 0 END) as total_issued
         FROM inventory_transactions 
-        WHERE DATE(created_at) >= DATE_SUB(?, INTERVAL 30 DAY)
+        WHERE DATE(created_at) >= date('now', '-30 days')
     ");
-    $stmt->execute([date('Y-m-d')]);
+    $stmt->execute();
     $report['monthly_summary'] = $stmt->fetch();
     
     return $report;

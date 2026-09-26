@@ -3,6 +3,12 @@
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/function.php';
 
+if (!function_exists('getTheme')) {
+    function getTheme() {
+        return 'light';
+    }
+}
+
 // Define color constants if not already defined
 if (!defined('COLOR_PRIMARY')) define('COLOR_PRIMARY', '#2F80ED');
 if (!defined('COLOR_SECONDARY')) define('COLOR_SECONDARY', '#56CCF2');
@@ -19,7 +25,7 @@ if (!defined('COLOR_DARK_SECONDARY_TEXT')) define('COLOR_DARK_SECONDARY_TEXT', '
 if (!defined('COLOR_DARK_BORDER')) define('COLOR_DARK_BORDER', '#1F2937');
 
 // Get theme setting
-$theme = getTheme();
+$theme = function_exists('getTheme') ? getTheme() : 'light';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = isset($_POST['email']) ? trim($_POST['email']) : '';
@@ -30,12 +36,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Please enter both email and password';
     } else {
         try {
-            $stmt = $pdo->prepare("SELECT * FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM(?)) LIMIT 1");
-            $stmt->execute([$email]);
+            $loginIdentifier = trim($email);
+            $sql = "SELECT * FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM(:login)) OR LOWER(TRIM(username)) = LOWER(TRIM(:login)) LIMIT 1";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([':login' => $loginIdentifier]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$user) {
-                $error = 'No account was found with that email address.';
+                $error = 'No account was found with that email address or username.';
                 logAudit(null, 'login_failed', 'auth', "Login failed - account not found: $email");
             } elseif (!(bool)$user['is_active']) {
                 $error = 'This account is inactive. Please contact your Administrator.';
@@ -66,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $rehashStmt->execute([$newHash, $user['id']]);
                 }
 
-                $stmt = $pdo->prepare("UPDATE users SET last_login = NOW() WHERE id = ?");
+                $stmt = $pdo->prepare("UPDATE users SET last_login = datetime('now') WHERE id = ?");
                 $stmt->execute([$user['id']]);
 
                 logAudit($user['id'], 'login', 'auth', 'User logged in');
@@ -472,8 +480,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             <div class="default-credentials">
                 <strong>Default Admin Credentials:</strong><br>
-                <span class="label">Email:</span> admin3@globalscm.com &nbsp;|&nbsp; 
-                <span class="label">Password:</span> admin123
+                <span class="label">Email:</span> admin@globalscm.com &nbsp;|&nbsp; 
+                <span class="label">Password:</span> admin@08
             </div>
             
             <div class="divider">

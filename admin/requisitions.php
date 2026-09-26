@@ -153,7 +153,7 @@ if ($action === 'bulk_approve' && isset($_POST['ids'])) {
                     $po_number = 'PO-' . date('Ymd') . '-' . str_pad(mt_rand(1, 999), 3, '0', STR_PAD_LEFT);
                     
                     $stmt2 = $pdo->prepare("INSERT INTO purchase_orders (po_number, order_date, expected_delivery, status, approval_status, created_by) 
-                                            VALUES (?, NOW(), DATE_ADD(NOW(), INTERVAL 14 DAY), 'approved', 'approved', ?)");
+                                            VALUES (?, datetime('now'), datetime('now', '+14 days'), 'approved', 'approved', ?)");
                     $stmt2->execute([$po_number, $_SESSION['user_id']]);
                     $po_id = $pdo->lastInsertId();
                     
@@ -279,7 +279,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'update_status') {
                 $po_number = 'PO-' . date('Ymd') . '-' . str_pad(mt_rand(1, 999), 3, '0', STR_PAD_LEFT);
                 
                 $stmt2 = $pdo->prepare("INSERT INTO purchase_orders (po_number, order_date, expected_delivery, status, approval_status, created_by) 
-                                        VALUES (?, NOW(), DATE_ADD(NOW(), INTERVAL 14 DAY), 'approved', 'approved', ?)");
+                                        VALUES (?, datetime('now'), datetime('now', '+14 days'), 'approved', 'approved', ?)");
                 $stmt2->execute([$po_number, $_SESSION['user_id']]);
                 $po_id = $pdo->lastInsertId();
                 
@@ -386,7 +386,7 @@ if ($action === 'convert_to_po' && isset($_GET['id'])) {
             $po_number = 'PO-' . date('Ymd') . '-' . str_pad(mt_rand(1, 999), 3, '0', STR_PAD_LEFT);
             
             $stmt2 = $pdo->prepare("INSERT INTO purchase_orders (po_number, order_date, expected_delivery, status, approval_status, created_by) 
-                                    VALUES (?, NOW(), DATE_ADD(NOW(), INTERVAL 14 DAY), 'approved', 'approved', ?)");
+                                    VALUES (?, datetime('now'), datetime('now', '+14 days'), 'approved', 'approved', ?)");
             $stmt2->execute([$po_number, $_SESSION['user_id']]);
             $po_id = $pdo->lastInsertId();
             

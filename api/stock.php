@@ -236,7 +236,7 @@ switch ($action) {
         $query = "SELECT it.*, p.sku, p.product_name 
                   FROM inventory_transactions it 
                   JOIN products p ON it.product_id = p.id 
-                  WHERE DATE(it.created_at) >= DATE_SUB(NOW(), INTERVAL ? DAY)";
+                  WHERE DATE(it.created_at) >= DATE('now', '-' || ? || ' days')";
         $params = [$days];
         
         if ($productId) {
@@ -306,7 +306,7 @@ switch ($action) {
                 SUM(CASE WHEN transaction_type = 'issuance' THEN quantity ELSE 0 END) as demand
             FROM inventory_transactions 
             WHERE product_id = ? 
-            AND DATE(created_at) >= DATE_SUB(NOW(), INTERVAL ? DAY)
+            AND DATE(created_at) >= DATE('now', '-' || ? || ' days')
             GROUP BY DATE(created_at)
             ORDER BY date ASC
         ");

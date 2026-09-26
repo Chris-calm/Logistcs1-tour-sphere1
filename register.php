@@ -17,21 +17,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = "Please fill in all required fields.";
     } else {
         try {
-            // 3. SECURELY HASH THE PASSWORD (PHP standard)
-            $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
+            $checkStmt = $pdo->prepare("SELECT id FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM(?)) OR LOWER(TRIM(username)) = LOWER(TRIM(?)) LIMIT 1");
+            $checkStmt->execute([$email, $username]);
+            $existingUser = $checkStmt->fetch(PDO::FETCH_ASSOC);
 
-            // 4. Prepare the PostgreSQL statement for Supabase
-            // Note: We include the explicit endpoint parameter for the connection pooler mapping
-            $sql = "INSERT INTO users (username, email, password, role, full_name, is_active, is_archived) 
-                    VALUES (?, ?, ?, ?, ?, true, false)";
-            
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute([$username, $email, $hashedPassword, $role, $full_name]);
+            if ($existingUser) {
+                $error = 'An account with that email address or username already exists. Please use a different one.';
+            } else {
+                // 3. SECURELY HASH THE PASSWORD (PHP standard)
+                $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
 
-            $message = "Account created successfully! <a href='login.php'>Click here to login</a>";
+                // 4. Insert the user record into the SQLite app database
+                $sql = "INSERT INTO users (username, email, password, role, full_name, is_active, is_archived) 
+                        VALUES (?, ?, ?, ?, ?, true, false)";
+
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute([$username, $email, $hashedPassword, $role, $full_name]);
+
+                $message = "Account created successfully! <a href='login.php'>Click here to login</a>";
+            }
         } catch (PDOException $e) {
             // Catch duplicate emails or database errors
-            $error = "Registration failed: " . $e->getMessage();
+            if (strpos($e->getMessage(), 'UNIQUE constraint failed') !== false) {
+                $error = 'An account with that email address already exists. Please use a different email address.';
+            } else {
+                $error = "Registration failed: " . $e->getMessage();
+            }
         }
     }
 }
